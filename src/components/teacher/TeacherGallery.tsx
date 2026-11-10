@@ -49,6 +49,7 @@ export function TeacherGallery({
   onlineIds,
   commentCount,
   mosaic,
+  covered,
   onOpen,
   onToggleVisible,
 }: {
@@ -57,6 +58,8 @@ export function TeacherGallery({
   onlineIds: Set<string>;
   commentCount: Map<string, number>;
   mosaic: boolean;
+  /** 교사 화면에서 그림을 모두 가림 (학생 화면과 무관) */
+  covered: boolean;
   onOpen: (artworkId: string) => void;
   onToggleVisible: (a: Artwork) => void;
 }) {
@@ -81,6 +84,7 @@ export function TeacherGallery({
               online={!!s.participant && onlineIds.has(s.participant.id)}
               comments={s.artwork ? commentCount.get(s.artwork.id) ?? 0 : 0}
               mosaic={mosaic}
+              covered={covered}
               onOpen={onOpen}
               onToggleVisible={onToggleVisible}
             />
@@ -92,13 +96,14 @@ export function TeacherGallery({
 }
 
 function Tile({
-  slot, src, online, comments, mosaic, onOpen, onToggleVisible,
+  slot, src, online, comments, mosaic, covered, onOpen, onToggleVisible,
 }: {
   slot: Slot;
   src: string | null;
   online: boolean;
   comments: number;
   mosaic: boolean;
+  covered: boolean;
   onOpen: (id: string) => void;
   onToggleVisible: (a: Artwork) => void;
 }) {
@@ -112,7 +117,16 @@ function Tile({
     img.src = src;
   }, [src]);
 
-  const img = a && loadedSrc && (
+  // 가림 상태에서는 그림 대신 '제출함' 표시만
+  const cover = a && covered && (
+    <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-[repeating-linear-gradient(135deg,#eef0fb_0_10px,#e6e9f8_10px_20px)]">
+      {!mosaic && <span className="text-2xl font-extrabold text-brand-300">{number}</span>}
+      <span className={`inline-flex items-center gap-1 rounded-full bg-white/90 font-bold text-brand-600 ${mosaic ? 'px-1.5 text-[11px]' : 'px-2 py-0.5 text-xs'}`}>
+        <Icon name="lock" size={mosaic ? 11 : 13} /> 제출함
+      </span>
+    </span>
+  );
+  const img = a && loadedSrc && !covered && (
     // eslint-disable-next-line @next/next/no-img-element
     <img key={a.thumb_path} src={loadedSrc} alt={`${number}번 작품`} draggable={false} className={`tile-update h-full w-full object-cover ${!a.is_visible ? 'opacity-35 grayscale' : ''}`} />
   );
@@ -121,6 +135,7 @@ function Tile({
     return (
       <button onClick={() => a && onOpen(a.id)} className="relative aspect-[4/3] overflow-hidden bg-[#fffdf8]" title={p ? `${number}번 ${p.nickname}` : `${number}번`}>
         {img}
+        {cover}
         {a && !a.is_visible && <span className="absolute right-1 top-1 rounded bg-ink-800/70 p-0.5 text-white"><Icon name="eyeOff" size={14} /></span>}
         {!a && <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-ink-200">{number}</span>}
       </button>
@@ -135,14 +150,15 @@ function Tile({
         className={`relative aspect-[4/3] w-full overflow-hidden ${a ? 'bg-white' : 'bg-[repeating-linear-gradient(135deg,#f7f7f9_0_10px,#f1f2f5_10px_20px)]'}`}
       >
         {img}
-        {a && !loadedSrc && <span className="absolute inset-0 animate-pulse bg-ink-100" />}
+        {cover}
+        {a && !loadedSrc && !covered && <span className="absolute inset-0 animate-pulse bg-ink-100" />}
         {!a && (
           <span className="absolute inset-0 flex flex-col items-center justify-center gap-1">
             <span className="text-2xl font-extrabold text-ink-300">{number}</span>
             <span className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-bold text-ink-400">{p ? '미제출 · 그리는 중' : '미참여'}</span>
           </span>
         )}
-        {a && !a.is_visible && (
+        {a && !a.is_visible && !covered && (
           <span className="absolute inset-0 flex items-center justify-center">
             <span className="inline-flex items-center gap-1 rounded-full bg-ink-800/80 px-3 py-1 text-sm font-bold text-white"><Icon name="eyeOff" size={16} /> 숨김</span>
           </span>

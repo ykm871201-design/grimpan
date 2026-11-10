@@ -45,7 +45,7 @@ npm run dev                  # http://localhost:3000
 npm run typecheck
 npm run build
 npm run test:db              # DB 권한·로직 테스트 (51개)
-tests/e2e/run.sh             # 가짜 Supabase + 브라우저 교실 시나리오 (36개). Python playwright 필요, CHROME_PATH 로 크롬 지정 가능
+tests/e2e/run.sh             # 가짜 Supabase + 브라우저 교실 시나리오 (38개). Python playwright 필요, CHROME_PATH 로 크롬 지정 가능
 npm run load-test            # 동시 접속 부하 테스트 (환경변수는 scripts/load-test.mjs 상단 참고, 실제 Supabase 에도 실행 가능)
 ```
 `tests/e2e/mock-supabase.mjs` 는 실제 schema.sql 을 PGlite 에 올리고 Auth/REST/Storage/Realtime 을 흉내 내는 **테스트 전용** 서버다. 클라이언트가 새 Supabase API 를 쓰면 이 mock 에도 해당 엔드포인트를 추가해야 E2E 가 돈다.
