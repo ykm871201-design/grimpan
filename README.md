@@ -65,7 +65,8 @@
 2. **Rate Limits** → **Rate limit for anonymous users** 를 **30 → 300 이상**으로 올립니다.
    - 기본값은 *IP 하나당 시간당 30회*입니다. 학교에서는 반 전체 태블릿이 같은 공유기(같은 공인 IP)를 쓰므로 기본값이면 **31번째 학생부터 접속이 막힙니다.** 여러 반이 연달아 수업한다면 더 넉넉하게 잡으세요.
    - 한 번 접속한 태블릿은 세션이 저장되므로 새로고침해도 다시 세지 않습니다.
-3. (선택) **Sign In / Providers → Email → Confirm email**
+3. **Sign In / Providers → Email** 은 반드시 **켜 둔 상태(Enable Email provider ON)** 여야 교사가 가입·로그인할 수 있습니다.
+4. (선택) 같은 화면의 **Confirm email**
    - 켜 두면 교사 가입 시 인증 메일이 갑니다. Supabase 기본 메일은 시간당 발송 수가 매우 적으므로, 교사 몇 분만 쓰신다면 **끄는 것**이 편합니다. 끄면 가입 즉시 로그인됩니다.
 
 ### 3-5. API 키 복사
@@ -97,6 +98,9 @@
    |---|---|
    | `NEXT_PUBLIC_SUPABASE_URL` | 3-5 의 Project URL |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 3-5 의 anon 또는 publishable 키 |
+
+   - ⚠️ 변수를 추가할 때 **Type 은 `Config`** 를 고르세요. `Secret` 으로 저장하면 값이 브라우저 화면에 들어가지 않아 가입·접속이 멈춥니다. (두 값 모두 공개되어도 안전한 값입니다. 이미 Secret 으로 저장했다면 Config 로 바꿀 수 없으니 삭제 후 다시 추가하세요.)
+   - 배포 후에 환경변수를 추가·수정했다면 **Deployments → ⋯ → Redeploy** 를 해야 반영됩니다.
 
 4. **Deploy** → 1~2분 뒤 `https://gurimpan-xxxx.vercel.app` 같은 주소가 생깁니다.
 5. Supabase 로 돌아가 **Authentication → URL Configuration**:

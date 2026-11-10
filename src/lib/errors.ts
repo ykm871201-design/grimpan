@@ -6,6 +6,16 @@ export function friendlyError(e: unknown): string {
         ? String((e as { message: unknown }).message)
         : '알 수 없는 오류가 발생했어요.';
   const m = raw.toLowerCase();
+  if (raw === 'TIMEOUT')
+    return '서버 응답이 없어요. Vercel 환경변수(NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY) 값과 인터넷 연결을 확인해 주세요.';
+  if (m.includes('invalid supabaseurl') || m.includes('invalid url'))
+    return 'Supabase 주소 설정이 잘못되었어요. Vercel 의 NEXT_PUBLIC_SUPABASE_URL 값을 확인해 주세요.';
+  if (m.includes('invalid api key') || m.includes('no api key'))
+    return 'Supabase 키 설정이 잘못되었어요. Vercel 의 NEXT_PUBLIC_SUPABASE_ANON_KEY 값을 확인해 주세요.';
+  if (m.includes('email rate limit'))
+    return '가입 확인 메일 발송 한도를 넘었어요. Supabase 에서 Confirm email 을 끄고 다시 시도해 주세요.';
+  if (m.includes('signups not allowed') || m.includes('signup is disabled'))
+    return 'Supabase 에서 신규 가입이 꺼져 있어요. Authentication 설정을 확인해 주세요.';
   if (m.includes('failed to fetch') || m.includes('network') || m.includes('load failed'))
     return '인터넷 연결이 불안정해요. 잠시 후 다시 시도해 주세요.';
   if (m.includes('anonymous sign-ins are disabled'))

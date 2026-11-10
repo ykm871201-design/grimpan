@@ -5,6 +5,16 @@ import { useState } from 'react';
 import { getTeacherClient } from '@/lib/supabase/teacher-client';
 import { friendlyError } from '@/lib/errors';
 
+// 서버가 응답하지 않을 때 무한 대기하지 않도록 20초 제한
+function withTimeout<T>(p: Promise<T>, ms = 20000): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) =>
+      setTimeout(() => rej(new Error('TIMEOUT')), ms),
+    ),
+  ]);
+}
+
 export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -20,20 +30,20 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
     e.preventDefault();
     setBusy(true);
     setMsg(null);
-    const sb = getTeacherClient();
     try {
+      const sb = getTeacherClient();
       if (mode === 'login') {
-        const { error } = await sb.auth.signInWithPassword({ email, password });
+        const { error } = await withTimeout(sb.auth.signInWithPassword({ email, password }));
         if (error) throw error;
         const next = params.get('next');
         router.replace(next && next.startsWith('/teacher') ? next : '/teacher');
         router.refresh();
       } else {
-        const { data, error } = await sb.auth.signUp({
+        const { data, error } = await withTimeout(sb.auth.signUp({
           email,
           password,
           options: { data: { display_name: name.trim() || undefined }, emailRedirectTo: `${window.location.origin}/auth/callback` },
-        });
+        }));
         if (error) throw error;
         if (data.session) {
           router.replace('/teacher');
