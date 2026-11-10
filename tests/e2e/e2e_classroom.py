@@ -163,6 +163,18 @@ with sync_playwright() as p:
     teacher.keyboard.press("Escape")
     check(teacher.locator("span:text-is('숨김')").count() >= 1, "교사 화면에 숨김 상태 명확히 표시")
 
+    # 교사 화면(전자칠판)에서도 그림 가리기 → 다시 보이기 (새로고침해도 유지)
+    teacher.click("text=내 화면도 가리기")
+    teacher.wait_for_function("document.querySelectorAll('img[alt$=\"번 작품\"]').length === 0", timeout=5000)
+    teacher.goto(teacher.url.split("?")[0])  # 새로고침 (QR 창 자동 열림 주소 제외)
+    teacher.wait_for_selector("text=내 화면에 다시 보이기", timeout=15000)
+    time.sleep(1.5)
+    check(teacher.locator('img[alt$="번 작품"]').count() == 0 and teacher.locator("text=제출함").count() >= 1, "교사 화면 가리기 → 그림이 하나도 안 보이고 새로고침해도 유지")
+    shot(teacher, "04b_teacher_covered")
+    teacher.click("text=내 화면에 다시 보이기")
+    teacher.wait_for_selector('img[alt="1번 작품"]', timeout=10000)
+    check(True, "교사 화면 다시 보이기 → 그림이 돌아옴")
+
     # ---------- 7. 인터넷 끊김 ----------
     s3 = students[2]["page"]
     students[2]["ctx"].set_offline(True)

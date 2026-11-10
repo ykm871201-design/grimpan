@@ -10,13 +10,16 @@ import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
 
 export function ArtworkModal({
-  sb, artwork, author, comments, participantById, onClose, onPrev, onNext, onToggleVisible, onHideComment, onDeleteComment,
+  sb, artwork, author, comments, participantById, covered, onUncover, onClose, onPrev, onNext, onToggleVisible, onHideComment, onDeleteComment,
 }: {
   sb: SupabaseClient;
   artwork: Artwork;
   author?: Participant;
   comments: Comment[];
   participantById: Map<string, Participant>;
+  /** 교사 화면 가림 중이면 그림을 보여 주지 않음 */
+  covered: boolean;
+  onUncover: () => void;
   onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
@@ -58,7 +61,15 @@ export function ArtworkModal({
     >
       <div className="flex h-full min-h-0 flex-col lg:flex-row">
         <div className="relative flex min-h-0 flex-1 items-center justify-center bg-ink-50 p-4">
-          {src ? (
+          {covered ? (
+            <div className="flex flex-col items-center gap-4 text-center">
+              <span className="flex h-20 w-20 items-center justify-center rounded-full bg-brand-50 text-brand-500"><Icon name="lock" size={40} /></span>
+              <p className="text-xl font-bold text-ink-600">선생님 화면에서 그림을 가려 두었어요.</p>
+              <button onClick={onUncover} className="inline-flex h-12 items-center gap-2 rounded-xl bg-brand-500 px-5 font-bold text-white">
+                <Icon name="eye" size={18} /> 내 화면에 다시 보이기
+              </button>
+            </div>
+          ) : src ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img key={artwork.image_path} src={src} alt="작품" className={`max-h-full max-w-full rounded-lg bg-white shadow-xl ${artwork.is_visible ? '' : 'opacity-60'}`} />
           ) : (

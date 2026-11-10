@@ -44,6 +44,21 @@ export function TeacherRoom({ roomId }: { roomId: string }) {
   const [results, setResults] = useState(false);
   const [confirm, setConfirm] = useState<null | { title: string; message: string; text: string; danger?: boolean; run: () => void }>(null);
   const [fs, setFs] = useState(false);
+  // 교사 화면(전자칠판)에서만 그림 가리기 — 학생 화면과는 별개. 새로고침해도 유지되도록 이 기기에 기억
+  const coverKey = `grimpan:cover:${roomId}`;
+  const [covered, setCoveredState] = useState(false);
+  useEffect(() => {
+    try {
+      setCoveredState(localStorage.getItem(coverKey) === '1');
+    } catch {}
+  }, [coverKey]);
+  const setCovered = (v: boolean) => {
+    setCoveredState(v);
+    try {
+      if (v) localStorage.setItem(coverKey, '1');
+      else localStorage.removeItem(coverKey);
+    } catch {}
+  };
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -236,7 +251,15 @@ export function TeacherRoom({ roomId }: { roomId: string }) {
                 <button onClick={() => setShowAll(false)} className={`h-9 rounded-lg px-3 text-sm font-bold ${!showAll ? 'bg-ink-800 text-white' : 'text-ink-500'}`}>제출 작품만 보기</button>
               </div>
               <button onClick={() => setAllVisible(true)} className={tbBtn()}><Icon name="eye" size={17} /> 전체 공개</button>
-              <button onClick={() => setConfirm({ title: '전체 숨김', message: '모든 작품을 학생들에게 숨길까요? (교사 화면에서는 계속 보여요)', text: '전체 숨김', run: () => setAllVisible(false) })} className={tbBtn()}><Icon name="eyeOff" size={17} /> 전체 숨김</button>
+              <button onClick={() => setConfirm({ title: '전체 숨김', message: '모든 작품을 학생들에게 숨길까요? (선생님 화면에서는 흐리게 계속 보여요. 선생님 화면에서도 안 보이게 하려면 \'내 화면도 가리기\' 버튼을 누르세요)', text: '전체 숨김', run: () => setAllVisible(false) })} className={tbBtn()}><Icon name="eyeOff" size={17} /> 전체 숨김</button>
+              <button
+                onClick={() => setCovered(!covered)}
+                className={tbBtn(covered)}
+                aria-pressed={covered}
+                title="선생님 화면(전자칠판)에서 그림을 모두 가려요. 학생 화면에는 영향이 없어요."
+              >
+                <Icon name={covered ? 'eye' : 'lock'} size={17} /> {covered ? '내 화면에 다시 보이기' : '내 화면도 가리기'}
+              </button>
               <button onClick={() => setMosaic((m) => !m)} className={tbBtn(mosaic)}><Icon name="grid" size={17} /> 협동화 보기</button>
               <span className="mx-1 h-6 w-px bg-ink-200" />
               <Switch checked={room.allow_resubmit_in_sharing} onChange={(v) => updateSettings({ p_allow_resubmit: v })} label="감상 중 그림 수정 허용" disabled={room.phase === 'closed'} />
@@ -253,6 +276,7 @@ export function TeacherRoom({ roomId }: { roomId: string }) {
                 onlineIds={onlineIds}
                 commentCount={commentCount}
                 mosaic={mosaic}
+                covered={covered}
                 onOpen={setOpenArt}
                 onToggleVisible={toggleVisible}
               />
@@ -303,6 +327,8 @@ export function TeacherRoom({ roomId }: { roomId: string }) {
           author={openSlot.participant}
           comments={comments}
           participantById={participantById}
+          covered={covered}
+          onUncover={() => setCovered(false)}
           onClose={() => setOpenArt(null)}
           onPrev={() => go(-1)}
           onNext={() => go(1)}
