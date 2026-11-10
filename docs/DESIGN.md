@@ -88,6 +88,6 @@ src/components/student/              학생 화면 (입장, 게시판, 상세·�
 src/components/teacher/              교사 화면 (갤러리, 댓글 중계, QR, 관리, 결과)
 src/middleware.ts                    교사 페이지 로그인 확인
 supabase/tests/db.test.mjs           DB 권한·로직 자동 테스트 (51개)
-tests/e2e/                           가짜 Supabase + 브라우저 교실 시나리오 테스트 (38개)
+tests/e2e/                           가짜 Supabase + 브라우저 교실 시나리오 테스트 (41개)
 scripts/load-test.mjs                동시 접속 부하 테스트 (실제 Supabase 에도 실행 가능)
 ```

@@ -111,6 +111,29 @@ with sync_playwright() as p:
     s1.click("button:text-is('취소')")
     check(True, "전체 지우기 확인창 표시 + 취소")
 
+    # 붓 종류: 고르기 창 → 6가지 붓으로 한 획씩
+    s1.click('button[aria-label^="붓 고르기"]')
+    s1.wait_for_selector("text=톡톡 뿌린 점")
+    time.sleep(0.6)  # 창 등장 애니메이션 끝난 뒤 촬영
+    shot(s1, "02b_brush_picker")
+    s1.keyboard.press("Escape")
+    s1.wait_for_selector("text=톡톡 뿌린 점", state="detached")
+    brushes = ["붓", "크레파스", "형광펜", "스프레이", "무지개", "펜"]
+    for i, b in enumerate(brushes):
+        s1.click('button[aria-label^="붓 고르기"]')
+        s1.click(f'button[aria-label="붓 {b}"]')
+        check(s1.locator(f'button[aria-label="붓 고르기 (지금: {b})"]').count() == 1, f"붓 바꾸기: {b}") if i in (0, 5) else None
+        c = s1.locator("canvas.canvas-surface").bounding_box()
+        x0, y0 = c["x"] + c["width"] * 0.1, c["y"] + c["height"] * (0.12 + 0.13 * i)
+        s1.mouse.move(x0, y0); s1.mouse.down()
+        for k in range(1, 30):
+            s1.mouse.move(x0 + k * c["width"] * 0.026, y0 + ((k % 8) - 4) * 4)
+        s1.mouse.up()
+    s1.locator('button[aria-label="지우개"]').click()
+    s1.click('button[aria-label^="붓 고르기"]')  # 지우개 → 붓으로 돌아오기만 (창은 안 열림)
+    check(s1.locator("text=톡톡 뿌린 점").count() == 0, "지우개 쓰다가 붓 버튼 → 바로 그리기로 돌아옴")
+    shot(s1, "02c_brushes_drawn")
+
     for i, st in enumerate(students):
         pg = st["page"]
         if i:
