@@ -23,7 +23,31 @@ export const COLORS = [
   '#14b8a6', '#38bdf8', '#3b5bdb', '#8b5cf6', '#ec4899', '#92400e', '#f6c9a8',
 ];
 export const SIZES = [4, 9, 16, 28, 48];
-export const ERASER_SCALE = 2.2;
+/** 지우개 크기 (논리 좌표 기준, 도화지 가로 1600) */
+export const ERASER_SIZES = [12, 24, 40, 64, 100];
+
+function hslToHex(h: number, s: number, l: number) {
+  s /= 100;
+  l /= 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const hex = (x: number) => Math.round(x * 255).toString(16).padStart(2, '0');
+  return `#${hex(f(0))}${hex(f(8))}${hex(f(4))}`;
+}
+
+/** '색 더 보기' 팔레트: 열 = 색 계열, 행 = 밝은 색 → 어두운 색 */
+const HUES: { h: number; s: number }[] = [
+  { h: 0, s: 85 }, { h: 18, s: 90 }, { h: 32, s: 95 }, { h: 48, s: 95 }, { h: 62, s: 85 },
+  { h: 90, s: 70 }, { h: 130, s: 60 }, { h: 165, s: 65 }, { h: 192, s: 80 }, { h: 215, s: 80 },
+  { h: 240, s: 65 }, { h: 268, s: 65 }, { h: 295, s: 60 }, { h: 330, s: 75 }, { h: 25, s: 45 },
+];
+const LIGHTS = [92, 82, 70, 58, 47, 37, 27, 18];
+export const PALETTE_COLS = HUES.length + 1; // + 회색 계열
+export const PALETTE: string[] = LIGHTS.flatMap((l, row) => [
+  ...HUES.map(({ h, s }) => hslToHex(h, s, l)),
+  hslToHex(0, 0, Math.round(100 - (row * 100) / (LIGHTS.length - 1))),
+]);
 
 export function drawStroke(ctx: CanvasRenderingContext2D, s: StrokeOp) {
   const color = s.tool === 'eraser' ? '#ffffff' : s.color;
