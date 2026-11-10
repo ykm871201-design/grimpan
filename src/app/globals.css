@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+
+  --color-paper: #fbfaf7;
+
+  --color-ink-50: #f7f7f9;
+  --color-ink-100: #eeeff3;
+  --color-ink-200: #dfe1e8;
+  --color-ink-300: #c6c9d4;
+  --color-ink-400: #9a9fb0;
+  --color-ink-500: #737a8e;
+  --color-ink-600: #565d71;
+  --color-ink-700: #3e4456;
+  --color-ink-800: #2a2f3d;
+  --color-ink-900: #1b1f29;
+
+  --color-brand-50: #f2f4ff;
+  --color-brand-100: #e4e8ff;
+  --color-brand-200: #c9d1ff;
+  --color-brand-300: #aab6ff;
+  --color-brand-400: #8b9bff;
+  --color-brand-500: #6d7ff7;
+  --color-brand-600: #5565e0;
+  --color-brand-700: #4350b8;
+
+  --color-mint-50: #effcf7;
+  --color-mint-100: #dff7ee;
+  --color-mint-200: #bdeedb;
+  --color-mint-400: #5fd3a8;
+  --color-mint-500: #36bd8e;
+  --color-mint-600: #2aa57b;
+  --color-mint-700: #1d7e5d;
+
+  --color-peach-50: #fff6f2;
+  --color-peach-100: #ffe9e0;
+  --color-peach-200: #ffd3c2;
+  --color-peach-400: #ff9f80;
+  --color-peach-500: #f47f5c;
+  --color-peach-600: #e5684a;
+  --color-peach-700: #b84a30;
+
+  --color-butter-50: #fffbeb;
+  --color-butter-100: #fff6d6;
+  --color-butter-200: #ffecaa;
+  --color-butter-400: #ffd45e;
+
+  --color-lilac-100: #f3ecff;
+  --color-sky-100: #e6f4ff;
+
+  --animate-fade-in: fade-in 0.25s ease-out both;
+  --animate-pop-in: pop-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+  --animate-slide-down: slide-down 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+  --animate-flash: flash 1.6s ease-out both;
+  --animate-rise: rise 0.7s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+
+  @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes pop-in { from { opacity: 0; transform: scale(0.92) } to { opacity: 1; transform: scale(1) } }
+  @keyframes slide-down { from { opacity: 0; transform: translateY(-14px) scale(0.98) } to { opacity: 1; transform: none } }
+  @keyframes flash {
+    0% { box-shadow: 0 0 0 0 rgba(109, 127, 247, 0.0); background-color: #fff6d6 }
+    20% { box-shadow: 0 0 0 4px rgba(109, 127, 247, 0.45) }
+    100% { box-shadow: 0 0 0 0 rgba(109, 127, 247, 0); background-color: #ffffff }
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(30px) scale(0.96) } to { opacity: 1; transform: none } }
+}
+
+html, body {
+  background: var(--color-paper);
+  color: var(--color-ink-800);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+body { overscroll-behavior: none; }
+
+/* 그림판: 스크롤/확대/선택 제스처와 그리기 충돌 방지 */
+.canvas-surface {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+
+/* 작품 재제출 시 타일 강조 */
+@keyframes tile-update {
+  0% { transform: scale(0.94); filter: brightness(1.15) }
+  60% { transform: scale(1.03) }
+  100% { transform: none; filter: none }
+}
+.tile-update { animation: tile-update 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+
+.scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: var(--color-ink-200); border-radius: 8px }
