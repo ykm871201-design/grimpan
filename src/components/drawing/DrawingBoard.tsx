@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import {
-  COLORS, ERASER_SCALE, H, SIZES, W, blobToImage, drawStroke, exportImages, isBlank, renderOps,
+  COLORS, ERASER_SIZES, H, PALETTE, PALETTE_COLS, SIZES, W, blobToImage, drawStroke, exportImages, isBlank, renderOps,
   type Op, type StrokeOp, type Tool,
 } from './engine';
 import { Icon } from '@/components/ui/Icon';
@@ -53,6 +53,9 @@ export function DrawingBoard(props: DrawingBoardProps) {
   const [tool, setTool] = useState<Tool>('pen');
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(SIZES[1]);
+  const [eraserSize, setEraserSize] = useState(ERASER_SIZES[1]);
+  const [recentColors, setRecentColors] = useState<string[]>([]);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [, setTick] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [big, setBig] = useState(false);
@@ -263,7 +266,7 @@ export function DrawingBoard(props: DrawingBoardProps) {
       kind: 'stroke',
       tool,
       color,
-      size: tool === 'eraser' ? Math.round(size * ERASER_SCALE) : size,
+      size: tool === 'eraser' ? eraserSize : size,
       pts: [x, y],
     };
     scheduleLive();
@@ -369,6 +372,27 @@ export function DrawingBoard(props: DrawingBoardProps) {
   const canUndo = opsRef.current.length > 0;
   const canRedo = redoRef.current.length > 0;
 
+  const pickColor = (c: string) => {
+    setColor(c);
+    setTool('pen');
+  };
+  /** 팔레트에서 고른 색은 '최근 색'에 남겨 다시 쉽게 고를 수 있게 합니다. */
+  const rememberColor = (c: string) => {
+    if (COLORS.includes(c)) return;
+    setRecentColors((prev) => [c, ...prev.filter((x) => x !== c)].slice(0, 8));
+  };
+  const customActive = tool === 'pen' && !COLORS.includes(color);
+  const closePalette = () => {
+    rememberColor(color);
+    setPaletteOpen(false);
+  };
+  useEffect(() => {
+    if (!paletteOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPaletteOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [paletteOpen]);
+
   const toolBtn = (active: boolean) =>
     `flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl transition active:scale-95 disabled:opacity-35 ${
       active ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30' : 'bg-white text-ink-600 border border-ink-200'
@@ -414,39 +438,67 @@ export function DrawingBoard(props: DrawingBoardProps) {
             </button>
           </div>
 
-          <div className="flex items-center gap-1 rounded-2xl bg-ink-50 p-1 landscape:flex-wrap landscape:justify-center">
-            {SIZES.map((s) => (
-              <button
-                key={s}
-                onClick={() => setSize(s)}
-                className={`flex h-11 w-11 items-center justify-center rounded-xl ${size === s ? 'bg-white shadow ring-2 ring-brand-400' : ''}`}
-                aria-label={`굵기 ${s}`}
-              >
-                <span
-                  className="rounded-full"
-                  style={{
-                    width: Math.max(4, Math.min(30, s * 0.62)),
-                    height: Math.max(4, Math.min(30, s * 0.62)),
-                    background: tool === 'eraser' ? '#c7cad1' : color,
-                  }}
-                />
-              </button>
-            ))}
+          <div className="flex flex-col items-center gap-1 rounded-2xl bg-ink-50 p-1">
+            <span className="px-1 text-xs font-bold text-ink-500">{tool === 'eraser' ? '지우개 크기' : '펜 굵기'}</span>
+            <div className="flex items-center gap-1 landscape:flex-wrap landscape:justify-center">
+              {tool === 'eraser'
+                ? ERASER_SIZES.map((s, i) => {
+                    const d = [8, 12, 17, 23, 30][i];
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setEraserSize(s)}
+                        className={`flex h-11 w-11 items-center justify-center rounded-xl ${eraserSize === s ? 'bg-white shadow ring-2 ring-brand-400' : ''}`}
+                        aria-label={`지우개 크기 ${i + 1}`}
+                      >
+                        <span className="rounded-full border-2 border-dashed border-ink-400 bg-white" style={{ width: d, height: d }} />
+                      </button>
+                    );
+                  })
+                : SIZES.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setSize(s)}
+                      className={`flex h-11 w-11 items-center justify-center rounded-xl ${size === s ? 'bg-white shadow ring-2 ring-brand-400' : ''}`}
+                      aria-label={`굵기 ${s}`}
+                    >
+                      <span
+                        className="rounded-full"
+                        style={{
+                          width: Math.max(4, Math.min(30, s * 0.62)),
+                          height: Math.max(4, Math.min(30, s * 0.62)),
+                          background: color,
+                        }}
+                      />
+                    </button>
+                  ))}
+            </div>
           </div>
 
-          <div className="grid grid-cols-7 gap-1.5 landscape:grid-cols-3">
+          <div className="grid grid-cols-8 gap-1.5 landscape:grid-cols-3">
             {COLORS.map((c) => (
               <button
                 key={c}
-                onClick={() => {
-                  setColor(c);
-                  setTool('pen');
-                }}
+                onClick={() => pickColor(c)}
                 className={`h-9 w-9 rounded-full ring-offset-2 transition active:scale-90 ${color === c && tool === 'pen' ? 'ring-[3px] ring-brand-500' : 'ring-1 ring-black/10'}`}
                 style={{ background: c }}
                 aria-label={`색 ${c}`}
               />
             ))}
+            <button
+              onClick={() => setPaletteOpen(true)}
+              className={`flex h-9 w-9 items-center justify-center rounded-full ring-offset-2 transition active:scale-90 ${customActive ? 'ring-[3px] ring-brand-500' : ''}`}
+              style={{ background: 'conic-gradient(#ef4444, #f97316, #facc15, #22c55e, #38bdf8, #3b5bdb, #8b5cf6, #ec4899, #ef4444)' }}
+              aria-label="색 더 보기"
+              title="색 더 보기"
+            >
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-ink-700 ring-1 ring-black/10"
+                style={customActive ? { background: color } : undefined}
+              >
+                {!customActive && <Icon name="plus" size={14} strokeWidth={3} />}
+              </span>
+            </button>
           </div>
 
           <div className="ml-auto flex gap-2 landscape:ml-0 landscape:mt-auto landscape:flex-wrap landscape:justify-center">
@@ -485,6 +537,71 @@ export function DrawingBoard(props: DrawingBoardProps) {
           </div>
         </div>
       </div>
+
+      {paletteOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-3 animate-fade-in"
+          onPointerDown={(e) => e.target === e.currentTarget && closePalette()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="색 고르기"
+        >
+          <div className="flex max-h-full w-full max-w-2xl flex-col gap-3 overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl animate-pop-in">
+            <div className="flex items-center gap-3">
+              <span className="h-10 w-10 shrink-0 rounded-full ring-1 ring-black/10" style={{ background: color }} />
+              <h2 className="flex-1 text-xl font-extrabold">색 고르기</h2>
+              <button
+                onClick={closePalette}
+                className="h-12 rounded-2xl bg-brand-500 px-5 text-lg font-bold text-white active:scale-95"
+              >
+                다 골랐어요
+              </button>
+            </div>
+
+            <div
+              className="grid gap-1"
+              style={{ gridTemplateColumns: `repeat(${PALETTE_COLS}, minmax(0, 1fr))` }}
+            >
+              {PALETTE.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => pickColor(c)}
+                  className={`aspect-square w-full rounded-lg transition active:scale-90 ${color === c ? 'ring-[3px] ring-brand-500 ring-offset-2' : 'ring-1 ring-black/10'}`}
+                  style={{ background: c }}
+                  aria-label={`팔레트 색 ${c}`}
+                />
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex h-12 cursor-pointer items-center gap-2 rounded-2xl border-2 border-ink-200 bg-ink-50 pl-2 pr-4 font-bold text-ink-700">
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => pickColor(e.target.value)}
+                  className="h-9 w-9 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                  aria-label="원하는 색 직접 만들기"
+                />
+                원하는 색 직접 만들기
+              </label>
+              {recentColors.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-sm font-bold text-ink-500">최근 쓴 색</span>
+                  {recentColors.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => pickColor(c)}
+                      className={`h-9 w-9 rounded-full transition active:scale-90 ${color === c ? 'ring-[3px] ring-brand-500 ring-offset-2' : 'ring-1 ring-black/10'}`}
+                      style={{ background: c }}
+                      aria-label={`최근 색 ${c}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={confirmClear}
