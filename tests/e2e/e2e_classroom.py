@@ -202,13 +202,22 @@ with sync_playwright() as p:
     shot(late, "08_late_student_portrait")
 
     # ---------- 9. 댓글 ----------
-    s3.locator('img[alt="1번 작품"]').click()
+    try:
+        s3.locator('img[alt="1번 작품"]').click(timeout=10000)
+    except Exception:
+        shot(s3, "ERR_s3_board"); print("S3 BODY:", s3.locator("body").inner_text()[:1500]); raise
     s3.wait_for_selector("text=별빛토끼의 작품")
     s3.click("text=👏 칭찬")
     s3.keyboard.type("색깔이 정말 예뻐요!")
     s3.click("button:has-text('등록')")
     s3.wait_for_selector("text=칭찬하고 싶은 부분은 색깔이 정말 예뻐요!")
-    check(s3.locator("text=/\\d초/").count() == 1, "댓글 등록 후 3초 연속 등록 방지(카운트다운)")
+    # 댓글이 실시간 이벤트로 RPC 응답보다 먼저 목록에 뜰 수 있으므로, 카운트다운은 잠깐 기다려서 확인
+    try:
+        expect(s3.locator("button", has_text=re.compile(r"^\d초$"))).to_have_count(1, timeout=2500)
+        cooling = True
+    except AssertionError:
+        cooling = False
+    check(cooling, "댓글 등록 후 3초 연속 등록 방지(카운트다운)")
     shot(s3, "09_student_comment")
     late.locator('img[alt="1번 작품"]').click()
     late.wait_for_selector("text=칭찬하고 싶은 부분은 색깔이 정말 예뻐요!", timeout=10000)

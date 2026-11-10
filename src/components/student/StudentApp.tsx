@@ -147,13 +147,19 @@ function StudentRoom({ sb, uid, roomId, me: initialMe, onKicked }: { sb: Supabas
     if (prevPhase.current && prevPhase.current !== room.phase && room.phase === 'sharing') {
       setTransition(true);
       setEditing(false);
-      const t = setTimeout(() => setTransition(false), 2600);
-      prevPhase.current = room.phase;
-      return () => clearTimeout(t);
+    } else if (room.phase !== 'sharing') {
+      setEditing(false);
+      setTransition(false);
     }
-    if (room.phase !== 'sharing') setEditing(false);
     prevPhase.current = room.phase;
   }, [room]);
+
+  // 전환 화면 자동 닫기. room 이 다시 불러와져도(재연결·실시간 갱신) 타이머가 취소되지 않도록 따로 둔다.
+  useEffect(() => {
+    if (!transition) return;
+    const t = setTimeout(() => setTransition(false), 2600);
+    return () => clearTimeout(t);
+  }, [transition]);
 
   const canSubmit = !!room && (room.phase === 'drawing' || (room.phase === 'sharing' && room.allow_resubmit_in_sharing));
   const disabledReason = !room
