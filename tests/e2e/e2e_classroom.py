@@ -3,10 +3,11 @@
 사전: 1) node tests/e2e/mock-supabase.mjs   2) .env.local 을 mock 주소로 두고 npm run build && npm start
 실행: python3 tests/e2e/e2e_classroom.py
 """
-import os, re, sys, time
+import os, re, sys, time, urllib.request
 from playwright.sync_api import sync_playwright, expect
 
 BASE = os.environ.get("APP_URL", "http://localhost:3000")
+MOCK = os.environ.get("MOCK_URL", "http://localhost:54321")
 SHOTS = os.environ.get("SHOTS", "/tmp/shots")
 os.makedirs(SHOTS, exist_ok=True)
 results = []
@@ -231,8 +232,13 @@ with sync_playwright() as p:
     late.wait_for_selector("text=① 내 번호를 눌러요")
     late.locator("section").first.locator("button:text-is('5')").click()
     late.fill('input[placeholder^="예: 그림왕"]', "늦은별")
+    # 입장 화면에 있는 동안 세션이 사라지고 + 접속이 몰려 익명 로그인이 2번 거절되는 상황
+    late.evaluate("localStorage.removeItem('gurimpan-student-auth')")
+    urllib.request.urlopen(urllib.request.Request(MOCK + "/__mock/reject-anon-signups", data=b'{"count":2}', method="POST")).read()
     late.click("text=5번 늦은별(으)로 들어가기")
-    late.wait_for_selector("text=친구들의 작품", timeout=15000)
+    late.wait_for_selector("text=들어오는 친구가 많아서", timeout=10000)
+    late.wait_for_selector("text=친구들의 작품", timeout=40000)
+    check(late.locator("text=permission denied").count() == 0, "세션이 사라지고 접속이 몰려도(429) 자동 재접속 후 입장 성공")
     check(True, "늦게 접속한 학생은 바로 현재 단계(감상 게시판) 화면")
     shot(late, "08_late_student_portrait")
 

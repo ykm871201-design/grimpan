@@ -129,6 +129,8 @@ async function getFnMeta(name) {
   return fnMeta.get(name);
 }
 
+let rejectAnonSignups = 0;
+
 // ---------------- http ----------------
 const server = http.createServer(async (req, res) => {
   try {
@@ -138,9 +140,19 @@ const server = http.createServer(async (req, res) => {
     const auth = req.headers.authorization?.replace(/^Bearer\s+/i, '') ?? '';
     const claims = claimsFrom(auth);
 
+    // ---- 테스트 제어: 다음 익명 로그인 N번을 '횟수 제한(429)'으로 거절 (실제 Supabase 의 IP당 제한 흉내) ----
+    if (p === '/__mock/reject-anon-signups' && req.method === 'POST') {
+      rejectAnonSignups = Number(JSON.parse((await readBody(req)).toString() || '{}').count ?? 0);
+      return send(res, 200, { ok: true });
+    }
+
     // ---- Auth ----
     if (p === '/auth/v1/signup' && req.method === 'POST') {
       const body = JSON.parse((await readBody(req)).toString() || '{}');
+      if (!body.email && rejectAnonSignups > 0) {
+        rejectAnonSignups--;
+        return send(res, 429, { code: 429, error_code: 'over_request_rate_limit', msg: 'Request rate limit reached' }, { 'x-supabase-api-version': '2024-01-01' });
+      }
       const u = body.email
         ? { id: randomUUID(), email: body.email, password: body.password, is_anonymous: false, meta: body.data ?? {} }
         : { id: randomUUID(), email: null, is_anonymous: true, meta: {} };

@@ -45,7 +45,7 @@ npm run dev                  # http://localhost:3000
 npm run typecheck
 npm run build
 npm run test:db              # DB 권한·로직 테스트 (51개)
-tests/e2e/run.sh             # 가짜 Supabase + 브라우저 교실 시나리오 (41개). Python playwright 필요, CHROME_PATH 로 크롬 지정 가능
+tests/e2e/run.sh             # 가짜 Supabase + 브라우저 교실 시나리오 (42개). Python playwright 필요, CHROME_PATH 로 크롬 지정 가능
 npm run load-test            # 동시 접속 부하 테스트 (환경변수는 scripts/load-test.mjs 상단 참고, 실제 Supabase 에도 실행 가능)
 ```
 `tests/e2e/mock-supabase.mjs` 는 실제 schema.sql 을 PGlite 에 올리고 Auth/REST/Storage/Realtime 을 흉내 내는 **테스트 전용** 서버다. 클라이언트가 새 Supabase API 를 쓰면 이 mock 에도 해당 엔드포인트를 추가해야 E2E 가 돈다.
@@ -59,6 +59,7 @@ npm run load-test            # 동시 접속 부하 테스트 (환경변수는 s
 | Vercel 에 Key 칸에 URL 을 넣어 오류 | 칸 혼동 | Key = 변수 이름, Value = 값 |
 | 교사 가입 '잠시만요…'에서 멈춤 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` 가 Secret 타입이라 번들에 빠짐 → 클라이언트 생성 예외가 try 밖에서 발생 | Config 로 다시 만들고 Redeploy. (AuthForm 은 이제 try 안에서 생성 + 20초 타임아웃) |
 | 이메일 가입 불가 | Supabase Email provider 가 꺼져 있었음 | Sign In / Providers → Email ON, Confirm email OFF |
+| 여러 명 동시 입장 시 학생 화면에 `permission denied for function join_room` | 같은 공인 IP 에서 접속이 몰려 Auth 횟수 제한(429) → 세션이 사라지면 supabase-js 가 경고 없이 공개 키로 요청 → DB 함수 권한 없음 | 클라이언트: `rpcWithSession`/`ensureStudentSession` 이 세션 재확보 + 429 시 분산 재시도(2026-11-11). 대시보드: Authentication → Rate Limits 상향 |
 
 배포된 번들에 환경변수가 들어갔는지는 사이트 JS 에서 `supabase.co` / `sb_publishable_` 문자열을 찾아 확인할 수 있다. 설정 상태는 `GET https://<ref>.supabase.co/auth/v1/settings` (헤더 `apikey`) 로 확인한다.
 
