@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ensureStudentSession, getStudentClient } from '@/lib/supabase/student-client';
+import { ensureStudentSession, getStudentClient, rpcWithSession } from '@/lib/supabase/student-client';
 import { hasSupabaseEnv } from '@/lib/supabase/env';
 import { friendlyError, withRetry } from '@/lib/errors';
 import { BUCKET, type Artwork, type Participant, type RoomBasic } from '@/lib/types';
@@ -33,16 +33,14 @@ export function StudentApp({ code }: { code: string }) {
     (async () => {
       try {
         setStage({ k: 'loading', msg: '접속하는 중…' });
-        const id = await withRetry(() => ensureStudentSession(sb), 4, 1500);
+        const onWait = (n: number) => !cancelled && setStage({ k: 'loading', msg: `접속하는 친구가 많아서 잠깐 기다리는 중이에요… (${n})` });
+        const data = await withRetry(() => rpcWithSession<RoomBasic[] | null>(sb, 'get_room_by_code', { p_code: code }, onWait));
+        if (cancelled) return;
+        // 세션을 다시 만들었을 수 있으므로 확인 후 사용
+        const id = await ensureStudentSession(sb, onWait);
         if (cancelled) return;
         setUid(id);
-        const { data, error } = await withRetry(async () => {
-          const r = await sb.rpc('get_room_by_code', { p_code: code });
-          if (r.error) throw r.error;
-          return r;
-        });
-        if (error) throw error;
-        const r = (data as RoomBasic[] | null)?.[0];
+        const r = data?.[0];
         if (!r) {
           setStage({ k: 'error', msg: `‘${code}’ 수업방을 찾을 수 없어요. 코드를 다시 확인해 주세요.` });
           return;
@@ -96,6 +94,7 @@ export function StudentApp({ code }: { code: string }) {
         code={code}
         room={basic}
         onJoined={(p) => {
+          if (p.user_id) setUid(p.user_id); // 입장하면서 세션을 다시 만들었을 수 있음
           setMe(p);
           setStage({ k: 'room' });
         }}

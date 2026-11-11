@@ -12,6 +12,8 @@ export function friendlyError(e: unknown): string {
     return 'Supabase 주소 설정이 잘못되었어요. Vercel 의 NEXT_PUBLIC_SUPABASE_URL 값을 확인해 주세요.';
   if (m.includes('invalid api key') || m.includes('no api key'))
     return 'Supabase 키 설정이 잘못되었어요. Vercel 의 NEXT_PUBLIC_SUPABASE_ANON_KEY 값을 확인해 주세요.';
+  if (m.includes('permission denied for function') || m.includes('세션이 없습니다'))
+    return '접속 정보가 끊겼어요. 화면을 새로고침한 뒤 다시 해 보세요.';
   if (m.includes('email rate limit'))
     return '가입 확인 메일 발송 한도를 넘었어요. Supabase 에서 Confirm email 을 끄고 다시 시도해 주세요.';
   if (m.includes('signups not allowed') || m.includes('signup is disabled'))

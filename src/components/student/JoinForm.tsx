@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Participant, RoomBasic } from '@/lib/types';
 import { friendlyError } from '@/lib/errors';
+import { rpcWithSession } from '@/lib/supabase/student-client';
 
 const LAST_KEY = 'gurimpan-last-identity';
 
@@ -22,22 +23,29 @@ export function JoinForm({ sb, code, room, onJoined }: { sb: SupabaseClient; cod
     }
   }, [room.max_students]);
 
+  const [waitMsg, setWaitMsg] = useState<string | null>(null);
+
   const submit = async () => {
-    if (!num || !nick.trim()) return;
+    if (!num || !nick.trim() || busy) return;
     setBusy(true);
     setErr(null);
-    const { data, error } = await sb.rpc('join_room', { p_code: code, p_student_number: num, p_nickname: nick.trim() });
-    setBusy(false);
-    if (error) {
-      setErr(friendlyError(error));
-      return;
-    }
     try {
-      localStorage.setItem(LAST_KEY, JSON.stringify({ number: num, nickname: nick.trim() }));
-    } catch {
-      /* noop */
+      const p = await rpcWithSession<Participant>(
+        sb, 'join_room', { p_code: code, p_student_number: num, p_nickname: nick.trim() },
+        (n) => setWaitMsg(`들어오는 친구가 많아서 잠깐 기다리는 중이에요… (${n})`),
+      );
+      try {
+        localStorage.setItem(LAST_KEY, JSON.stringify({ number: num, nickname: nick.trim() }));
+      } catch {
+        /* noop */
+      }
+      onJoined(p);
+    } catch (e) {
+      setErr(friendlyError(e));
+    } finally {
+      setBusy(false);
+      setWaitMsg(null);
     }
-    onJoined(data as Participant);
   };
 
   return (
@@ -77,6 +85,7 @@ export function JoinForm({ sb, code, room, onJoined }: { sb: SupabaseClient; cod
         />
       </section>
 
+      {waitMsg && <div className="mb-4 rounded-2xl bg-butter-100 px-4 py-3 text-center font-semibold text-ink-700">{waitMsg}</div>}
       {err && <div className="mb-4 rounded-2xl bg-peach-100 px-4 py-3 text-center font-semibold text-peach-700">{err}</div>}
 
       <button
