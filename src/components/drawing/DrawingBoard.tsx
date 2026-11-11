@@ -2,12 +2,41 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import {
-  COLORS, ERASER_SIZES, H, PALETTE, PALETTE_COLS, SIZES, W, blobToImage, drawStroke, exportImages, isBlank, renderOps,
-  type Op, type StrokeOp, type Tool,
+  BRUSHES, COLORS, ERASER_SIZES, H, PALETTE, PALETTE_COLS, SIZES, W, blobToImage, drawStroke, exportImages, isBlank, renderOps,
+  type Brush, type Op, type StrokeOp, type Tool,
 } from './engine';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/Modal';
 import { toggleFullscreen, isFullscreen } from '@/lib/fullscreen';
+
+const BRUSH_ICON: Record<Brush, IconName> = {
+  pen: 'pen', brush: 'brush', crayon: 'crayon', marker: 'marker', spray: 'spray', rainbow: 'rainbow',
+};
+const RAINBOW_BG = 'linear-gradient(90deg, #ef4444, #f97316, #facc15, #22c55e, #38bdf8, #8b5cf6)';
+
+/** 붓 고르기 창의 미리보기: 실제 그림 엔진으로 물결선을 그려 보여 줌 */
+function BrushPreview({ brush, color, size }: { brush: Brush; color: string; size: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const LW = 300, LH = 90;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const cssW = c.clientWidth || 240;
+    c.width = Math.round(cssW * dpr);
+    c.height = Math.round((cssW * LH * dpr) / LW);
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.setTransform(c.width / LW, 0, 0, c.width / LW, 0, 0);
+    const pts: number[] = [];
+    // 처음엔 천천히(촘촘), 갈수록 빠르게(성기게) → 붓 굵기 변화가 보이도록
+    for (let x = 24, step = 2; x <= 276; x += step, step = Math.min(14, step * 1.06)) pts.push(x, 45 + 22 * Math.sin((x - 24) / 40));
+    drawStroke(ctx, { kind: 'stroke', tool: 'pen', brush, color, size: Math.min(24, Math.max(10, size)), pts, seed: 7 });
+  }, [brush, color, size]);
+  return <canvas ref={ref} className="block aspect-[10/3] w-full rounded-xl bg-white ring-1 ring-ink-100" aria-hidden="true" />;
+}
 
 interface Draft {
   v: 1;
@@ -51,6 +80,8 @@ export function DrawingBoard(props: DrawingBoardProps) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [tool, setTool] = useState<Tool>('pen');
+  const [brush, setBrush] = useState<Brush>('pen');
+  const [brushOpen, setBrushOpen] = useState(false);
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(SIZES[1]);
   const [eraserSize, setEraserSize] = useState(ERASER_SIZES[1]);
@@ -262,13 +293,20 @@ export function DrawingBoard(props: DrawingBoardProps) {
     }
     activePointer.current = e.pointerId;
     const [x, y] = toLogical(e);
-    curRef.current = {
+    const op: StrokeOp = {
       kind: 'stroke',
       tool,
       color,
       size: tool === 'eraser' ? eraserSize : size,
       pts: [x, y],
     };
+    if (tool === 'pen' && brush !== 'pen') {
+      op.brush = brush;
+      if (brush === 'spray') op.seed = Math.floor(Math.random() * 2147483647);
+      // 붓 + 스타일러스(애플펜슬·S펜)는 누르는 힘으로 굵기 조절
+      if (brush === 'brush' && e.pointerType === 'pen' && e.pressure > 0) op.pr = [e.pressure];
+    }
+    curRef.current = op;
     scheduleLive();
   };
 
@@ -278,11 +316,13 @@ export function DrawingBoard(props: DrawingBoardProps) {
     const native = e.nativeEvent as PointerEvent;
     const events = typeof native.getCoalescedEvents === 'function' ? native.getCoalescedEvents() : [native];
     const pts = curRef.current.pts;
+    const pr = curRef.current.pr;
     for (const ev of events.length ? events : [native]) {
       const [x, y] = toLogical(ev);
       const lx = pts[pts.length - 2], ly = pts[pts.length - 1];
       if (Math.abs(x - lx) + Math.abs(y - ly) < 1.2) continue;
       pts.push(x, y);
+      if (pr) pr.push(ev.pressure > 0 ? ev.pressure : pr[pr.length - 1]);
     }
     scheduleLive();
   };
@@ -375,7 +415,19 @@ export function DrawingBoard(props: DrawingBoardProps) {
   const pickColor = (c: string) => {
     setColor(c);
     setTool('pen');
+    if (brush === 'rainbow') setBrush('pen'); // 무지개는 색을 고를 수 없으므로 고른 색이 바로 나오게
   };
+  const pickBrush = (b: Brush) => {
+    setBrush(b);
+    setTool('pen');
+    setBrushOpen(false);
+  };
+  /** 지우개를 쓰다가 누르면 붓으로 돌아오고, 이미 붓이면 붓 고르기 창을 엶 */
+  const onBrushButton = () => {
+    if (tool !== 'pen') setTool('pen');
+    else setBrushOpen(true);
+  };
+  const brushInfo = BRUSHES.find((b) => b.key === brush)!;
   /** 팔레트에서 고른 색은 '최근 색'에 남겨 다시 쉽게 고를 수 있게 합니다. */
   const rememberColor = (c: string) => {
     if (COLORS.includes(c)) return;
@@ -387,11 +439,15 @@ export function DrawingBoard(props: DrawingBoardProps) {
     setPaletteOpen(false);
   };
   useEffect(() => {
-    if (!paletteOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPaletteOpen(false);
+    if (!paletteOpen && !brushOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setPaletteOpen(false);
+      setBrushOpen(false);
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [paletteOpen]);
+  }, [paletteOpen, brushOpen]);
 
   const toolBtn = (active: boolean) =>
     `flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl transition active:scale-95 disabled:opacity-35 ${
@@ -430,8 +486,20 @@ export function DrawingBoard(props: DrawingBoardProps) {
         {/* 도구 */}
         <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-3xl bg-white/80 p-2 shadow-sm ring-1 ring-ink-100 landscape:w-[136px] landscape:flex-col landscape:flex-nowrap landscape:overflow-y-auto">
           <div className="flex gap-2 landscape:flex-wrap landscape:justify-center">
-            <button className={toolBtn(tool === 'pen')} onClick={() => setTool('pen')} aria-label="펜">
-              <Icon name="pen" size={26} />
+            <button
+              className={`relative flex-col gap-0.5 ${toolBtn(tool === 'pen')}`}
+              onClick={onBrushButton}
+              aria-label={`붓 고르기 (지금: ${brushInfo.label})`}
+              title="붓 고르기"
+            >
+              <Icon name={BRUSH_ICON[brush]} size={22} />
+              <span className="text-[11px] font-bold leading-none">{brushInfo.label}</span>
+              <span
+                className={`absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow ${tool === 'pen' ? 'bg-white text-brand-600' : 'bg-brand-500 text-white'}`}
+                aria-hidden="true"
+              >
+                ▾
+              </span>
             </button>
             <button className={toolBtn(tool === 'eraser')} onClick={() => setTool('eraser')} aria-label="지우개">
               <Icon name="eraser" size={26} />
@@ -439,7 +507,7 @@ export function DrawingBoard(props: DrawingBoardProps) {
           </div>
 
           <div className="flex flex-col items-center gap-1 rounded-2xl bg-ink-50 p-1">
-            <span className="px-1 text-xs font-bold text-ink-500">{tool === 'eraser' ? '지우개 크기' : '펜 굵기'}</span>
+            <span className="px-1 text-xs font-bold text-ink-500">{tool === 'eraser' ? '지우개 크기' : '굵기'}</span>
             <div className="flex items-center gap-1 landscape:flex-wrap landscape:justify-center">
               {tool === 'eraser'
                 ? ERASER_SIZES.map((s, i) => {
@@ -467,7 +535,8 @@ export function DrawingBoard(props: DrawingBoardProps) {
                         style={{
                           width: Math.max(4, Math.min(30, s * 0.62)),
                           height: Math.max(4, Math.min(30, s * 0.62)),
-                          background: color,
+                          background: brush === 'rainbow' ? RAINBOW_BG : color,
+                          opacity: brush === 'marker' ? 0.5 : 1,
                         }}
                       />
                     </button>
@@ -537,6 +606,46 @@ export function DrawingBoard(props: DrawingBoardProps) {
           </div>
         </div>
       </div>
+
+      {brushOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-3 animate-fade-in"
+          onPointerDown={(e) => e.target === e.currentTarget && setBrushOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="붓 고르기"
+        >
+          <div className="flex max-h-full w-full max-w-2xl flex-col gap-3 overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl animate-pop-in">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600"><Icon name="brush" /></span>
+              <h2 className="flex-1 text-xl font-extrabold">붓 고르기</h2>
+              <button onClick={() => setBrushOpen(false)} className="h-12 rounded-2xl bg-ink-100 px-5 text-lg font-bold text-ink-700 active:scale-95">
+                닫기
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {BRUSHES.map((b) => {
+                const on = brush === b.key && tool === 'pen';
+                return (
+                  <button
+                    key={b.key}
+                    onClick={() => pickBrush(b.key)}
+                    className={`flex flex-col gap-1.5 rounded-2xl p-2 text-left transition active:scale-95 ${on ? 'bg-brand-50 ring-[3px] ring-brand-500' : 'bg-ink-50 ring-1 ring-ink-100'}`}
+                    aria-label={`붓 ${b.label}`}
+                    aria-pressed={on}
+                  >
+                    <BrushPreview brush={b.key} color={color} size={size} />
+                    <span className="flex items-center gap-1.5 px-1 text-lg font-extrabold text-ink-800">
+                      <Icon name={BRUSH_ICON[b.key]} size={20} /> {b.label}
+                    </span>
+                    <span className="px-1 text-sm leading-snug text-ink-500">{b.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {paletteOpen && (
         <div
